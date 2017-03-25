@@ -1,0 +1,23 @@
+---
+layout: post
+title: "Android开发教程"
+date: 2017-03-05 21:06:03 +0800
+comments: true
+categories: [Android,PHP,algorithm]
+---
+##Android环境搭建
+**宋源**
+>提示：引用自。。。
+
+- Android工具下载
+	- android studio
+	- jdk, jde
+- Java环境配置
+	- 环境变雷配置
+
+<!--more-->
+
+- Android工具安装
+- 创建工程
+
+[相关连接](http://www.baidu.com)

@@ -1,0 +1,23 @@
+---
+layout: post
+title: "android2"
+date: 2017-03-05 23:29:42 +0800
+comments: true
+categories:
+---
+##Android
+**宋源**
+>提示：引用自。。。
+
+- Android工具下载
+	- android studio
+	- jdk, jde
+
+<!--more-->
+
+- Java环境配置
+	- 环境变雷配置
+- Android工具安装
+- 创建工程
+
+[相关连接](http://www.baidu.com)
