@@ -1,0 +1,1297 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Android | SY Blog]]></title>
+  <link href="http://songdo.github.io/blog/categories/android/atom.xml" rel="self"/>
+  <link href="http://songdo.github.io/"/>
+  <updated>2017-03-26T20:13:27+08:00</updated>
+  <id>http://songdo.github.io/</id>
+  <author>
+    <name><![CDATA[songyuan]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[]]></title>
+    <link href="http://songdo.github.io/blog/2017/03/25/retrofit2/"/>
+    <updated>2017-03-25T22:49:52+08:00</updated>
+    <id>http://songdo.github.io/blog/2017/03/25/retrofit2</id>
+    <content type="html"><![CDATA[<blockquote><h5>本文注目录：</h5>
+
+<ul>
+<li>Retrofit入门</li>
+<li>Retrofit注解详解</li>
+<li>Gson与Converter</li>
+<li>RxJava与CallAdapter</li>
+<li>自定义Converter</li>
+<li>自定义CallAdapter</li>
+<li>其它说明</li>
+</ul>
+</blockquote>
+
+<h4>前言</h4>
+
+<p>本文中的Retrofit均指代Retrofit2.0。
+本文涉及到的代码以及测试使用的接口可在Github上找到。
+测试接口服务器在 server 项目下，直接运行 RESTServer.main() 即可启动测试服务器，所面代码示例均使用该接口(接口地址 <a href="http://localhost:4567/">http://localhost:4567/</a> ).
+当然你也可以自己借助 json-server 或 最新开源的Parse 搭建一个REST API，不过都需要安装Node.js，有兴趣的可以去试试。</p>
+
+<!--more-->
+
+
+<p>接口列表：</p>
+
+<p><img src="http://i.imgur.com/ryIoI19.jpg" alt="" /></p>
+
+<p>前面写了你应该知道的HTTP基础知识 介绍了HTTP的相关知识，不知道那些想了解Retrofit的同鞋是不是去看了Retrofit的官方教程，曾经我在你真的会用Gson吗?Gson使用指南（四） 中说当你了解了注解、反射、泛型、HTTP的内容只需要看一篇Retrofit的代码示例就可以轻松玩转Retrofit，不知道你玩转了没?注：以上的接口的{id}和{page}均代表一个纯数字，/blog/{id} 可以用/blog?id=XXX 代替，page同理。
+当然注解、反射、泛型的内容还没有写，Retrofit的内容却先来了！毕竟看懂Retrofit也只需要会使就行，你准备好了吗？</p>
+
+<h3>1、 Retrofit入门</h3>
+
+<p>Retrofit 其实相当简单，简单到源码只有37个文件，其中22个文件是注解还都和HTTP有关，真正暴露给用户的类并不多,所以我看了一遍 官方教程 大多数情景就可以无障碍使用，如果你还没有看过，可以先去看看,虽然是英文，但代码才是最好的教程不是么?当然本篇文章会介绍得详细一点，不能写一篇水文，毕竟我给它命名为《你真的会用Retrofit2吗?Retrofit2完全教程》。</p>
+
+<h4>1.1、 创建Retrofit实例</h4>
+
+<pre><code>Retrofit retrofit = new Retrofit.Builder().baseUrl("http://localhost:4567/").build();  
+</code></pre>
+
+<p>创建Retrofit实例时需要通过Retrofit.Builder,并调用baseUrl方法设置URL。
+注： Retrofit2 的baseUlr 必须以 \/（斜线） 结束，不然会抛出一个IllegalArgumentException,所以如果你看到别的教程没有以\/ 结束，那么多半是直接从Retrofit 1.X 照搬过来的。</p>
+
+<h4>1.2、接口定义</h4>
+
+<p>以获取指定id的Blog为例:
+<code>  
+    public interface BlogService {  
+        @GET("blog/{id}")  
+        Call&lt;ResponseBody&gt; getFirstBlog(@Path("id") int id);  
+    }  
+</code>
+注意，这里是interface不是class，所以我们是无法直接调用该方法，我们需要用Retrofit创建一个BlogService的代理对象。
+<code>
+  BlogService service = retrofit.create(BlogService.class);  
+</code>
+拿到代理对象之后，就可以调用该方法啦。</p>
+
+<h3>1.3、接口调用</h3>
+
+<pre><code>    Call&lt;ResponseBody&gt; call = service.getFirstBlog(2);  
+    // 用法和OkHttp的call如出一辙,  
+    // 不同的是如果是Android系统回调方法执行在主线程  
+    call.enqueue(new Callback&lt;ResponseBody&gt;() {  
+        @Override  
+        public void onResponse(Call&lt;ResponseBody&gt; call, Response&lt;ResponseBody&gt; response) {  
+            try {  
+                System.out.println(response.body().string());  
+            } catch (IOException e) {  
+                e.printStackTrace();  
+            }  
+        }  
+
+        @Override  
+        public void onFailure(Call&lt;ResponseBody&gt; call, Throwable t) {  
+            t.printStackTrace();  
+        }  
+    });  
+</code></pre>
+
+<p>打印结果:
+<code>
+    {"code":200,"msg":"OK","data":{"id":2,"date":"2016-04-15 03:17:50","author":"怪盗kidou","title":"Retrofit2 测试2","content":"这里是 Retrofit2 Demo 测试服务器2"},"count":0,"page":0}  
+</code></p>
+
+<p>示例源码见 Example01.java</p>
+
+<h3>3、Gson与Converter</h3>
+
+<p>在默认情况下Retrofit只支持将HTTP的响应体转换换为ResponseBody,
+这也是什么我在前面的例子接口的返回值都是 Call<ResponseBody>，
+但如果响应体只是支持转换为ResponseBody的话何必要引用泛型呢，
+返回值直接用一个Call就行了嘛，既然支持泛型，那说明泛型参数可以是其它类型的，
+<u>而Converter就是Retrofit为我们提供用于将ResponseBody转换为我们想要的类型</u>，
+有了Converter之后我们就可以写把我们的第一个例子的接口写成这个样子了：
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+<span class='line-number'>70</span>
+<span class='line-number'>71</span>
+<span class='line-number'>72</span>
+<span class='line-number'>73</span>
+<span class='line-number'>74</span>
+<span class='line-number'>75</span>
+<span class='line-number'>76</span>
+<span class='line-number'>77</span>
+<span class='line-number'>78</span>
+<span class='line-number'>79</span>
+<span class='line-number'>80</span>
+<span class='line-number'>81</span>
+<span class='line-number'>82</span>
+<span class='line-number'>83</span>
+<span class='line-number'>84</span>
+<span class='line-number'>85</span>
+<span class='line-number'>86</span>
+<span class='line-number'>87</span>
+<span class='line-number'>88</span>
+<span class='line-number'>89</span>
+<span class='line-number'>90</span>
+<span class='line-number'>91</span>
+<span class='line-number'>92</span>
+<span class='line-number'>93</span>
+<span class='line-number'>94</span>
+<span class='line-number'>95</span>
+<span class='line-number'>96</span>
+<span class='line-number'>97</span>
+<span class='line-number'>98</span>
+<span class='line-number'>99</span>
+<span class='line-number'>100</span>
+<span class='line-number'>101</span>
+<span class='line-number'>102</span>
+<span class='line-number'>103</span>
+<span class='line-number'>104</span>
+<span class='line-number'>105</span>
+<span class='line-number'>106</span>
+<span class='line-number'>107</span>
+<span class='line-number'>108</span>
+<span class='line-number'>109</span>
+<span class='line-number'>110</span>
+<span class='line-number'>111</span>
+<span class='line-number'>112</span>
+<span class='line-number'>113</span>
+<span class='line-number'>114</span>
+<span class='line-number'>115</span>
+<span class='line-number'>116</span>
+<span class='line-number'>117</span>
+<span class='line-number'>118</span>
+<span class='line-number'>119</span>
+<span class='line-number'>120</span>
+<span class='line-number'>121</span>
+<span class='line-number'>122</span>
+<span class='line-number'>123</span>
+<span class='line-number'>124</span>
+<span class='line-number'>125</span>
+<span class='line-number'>126</span>
+<span class='line-number'>127</span>
+<span class='line-number'>128</span>
+<span class='line-number'>129</span>
+<span class='line-number'>130</span>
+<span class='line-number'>131</span>
+<span class='line-number'>132</span>
+<span class='line-number'>133</span>
+<span class='line-number'>134</span>
+<span class='line-number'>135</span>
+<span class='line-number'>136</span>
+<span class='line-number'>137</span>
+<span class='line-number'>138</span>
+<span class='line-number'>139</span>
+<span class='line-number'>140</span>
+<span class='line-number'>141</span>
+<span class='line-number'>142</span>
+<span class='line-number'>143</span>
+<span class='line-number'>144</span>
+<span class='line-number'>145</span>
+<span class='line-number'>146</span>
+<span class='line-number'>147</span>
+<span class='line-number'>148</span>
+<span class='line-number'>149</span>
+<span class='line-number'>150</span>
+<span class='line-number'>151</span>
+<span class='line-number'>152</span>
+<span class='line-number'>153</span>
+<span class='line-number'>154</span>
+<span class='line-number'>155</span>
+<span class='line-number'>156</span>
+<span class='line-number'>157</span>
+<span class='line-number'>158</span>
+<span class='line-number'>159</span>
+<span class='line-number'>160</span>
+<span class='line-number'>161</span>
+<span class='line-number'>162</span>
+<span class='line-number'>163</span>
+<span class='line-number'>164</span>
+<span class='line-number'>165</span>
+<span class='line-number'>166</span>
+<span class='line-number'>167</span>
+<span class='line-number'>168</span>
+<span class='line-number'>169</span>
+<span class='line-number'>170</span>
+<span class='line-number'>171</span>
+<span class='line-number'>172</span>
+<span class='line-number'>173</span>
+<span class='line-number'>174</span>
+<span class='line-number'>175</span>
+<span class='line-number'>176</span>
+<span class='line-number'>177</span>
+<span class='line-number'>178</span>
+<span class='line-number'>179</span>
+<span class='line-number'>180</span>
+<span class='line-number'>181</span>
+<span class='line-number'>182</span>
+<span class='line-number'>183</span>
+<span class='line-number'>184</span>
+<span class='line-number'>185</span>
+<span class='line-number'>186</span>
+<span class='line-number'>187</span>
+<span class='line-number'>188</span>
+<span class='line-number'>189</span>
+<span class='line-number'>190</span>
+<span class='line-number'>191</span>
+<span class='line-number'>192</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>public interface BlogService {&lt;br/&gt;
+</span><span class='line'>  @GET(&ldquo;blog/{id}&rdquo;) //这里的{id} 表示是一个变量&lt;br/&gt;
+</span><span class='line'>  Call&lt;Result&lt;Blog&gt;&gt; getFirstBlog(/&lt;em&gt;* 这里的id表示的是上面的{id} &lt;/em&gt;/@Path(&ldquo;id&rdquo;) int id);&lt;br/&gt;
+</span><span class='line'>}&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>当然只改变泛型的类型是不行的，我们在创建Retrofit时需要明确告知用于将ResponseBody转换我们泛型中的类型时需要使用的Converter
+</span><span class='line'>引入Gson支持:
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;compile 'com.squareup.retrofit2:converter-gson:2.0.2'  
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;通过GsonConverterFactory为Retrofit添加Gson支持：
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;Gson gson = new GsonBuilder()  
+</span><span class='line'>  //配置你的Gson  
+</span><span class='line'>  .setDateFormat("yyyy-MM-dd hh:mm:ss")  
+</span><span class='line'>  .create();  
+</span><span class='line'>
+</span><span class='line'>Retrofit retrofit = new Retrofit.Builder()  
+</span><span class='line'>  .baseUrl("http://localhost:4567/")  
+</span><span class='line'>  //可以接收自定义的Gson，当然也可以不传  
+</span><span class='line'>  .addConverterFactory(GsonConverterFactory.create(gson))  
+</span><span class='line'>  .build();  
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;示例源码见 Example06.java
+</span><span class='line'>这样Retrofit就会使用Gson将ResponseBody转换我们想要的类型。
+</span><span class='line'>这是时候我们终于可以演示如使创建一个Blog了！
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;@POST("blog")  
+</span><span class='line'>Call&lt;Result&lt;Blog&gt;&gt; createBlog(@Body Blog blog);  
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;被@Body注解的的Blog将会被Gson转换成RequestBody发送到服务器。
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;BlogService service = retrofit.create(BlogService.class);  
+</span><span class='line'>Blog blog = new Blog();  
+</span><span class='line'>blog.content = "新建的Blog";  
+</span><span class='line'>blog.title = "测试";  
+</span><span class='line'>blog.author = "怪盗kidou";  
+</span><span class='line'>Call&lt;Result&lt;Blog&gt;&gt; call = service.createBlog(blog);  
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;结果：
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;Result{code=200, msg='OK', data=Blog{id=20, date='2016-04-21 05:29:58', author='怪盗kidou', title='测试', content='新建的Blog'}, count=0, page=0}  
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;示例源码见 Example07.java
+</span><span class='line'>如果你对Gson不熟悉可以参考我写的《你真的会用Gson吗?Gson使用指南》 系列。
+</span><span class='line'>###4、RxJava与CallAdapter
+</span><span class='line'>说到Retrofit就不得说到另一个火到不行的库RxJava，网上已经不少文章讲如何与Retrofit结合，但这里还是会有一个RxJava的例子，不过这里主要目的是介绍使用CallAdapter所带来的效果。
+</span><span class='line'>第3节介绍的Converter是对于Call&lt;T&gt;中T的转换，而CallAdapter则可以对Call转换，这样的话Call&lt;T&gt;中的Call也是可以被替换的，而返回值的类型就决定你后续的处理程序逻辑，同样Retrofit提供了多个CallAdapter，这里以RxJava的为例，用Observable代替Call：
+</span><span class='line'>引入RxJava支持:
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;compile 'com.squareup.retrofit2:adapter-rxjava:2.0.2'  
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;通过RxJavaCallAdapterFactory为Retrofit添加RxJava支持：
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;Retrofit retrofit = new Retrofit.Builder()  
+</span><span class='line'>  .baseUrl("http://localhost:4567/")  
+</span><span class='line'>  .addConverterFactory(GsonConverterFactory.create())  
+</span><span class='line'>  .addCallAdapterFactory(RxJavaCallAdapterFactory.create())  
+</span><span class='line'>  .build();  
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;接口设计：
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;public interface BlogService {  
+</span><span class='line'>  @POST("/blog")  
+</span><span class='line'>  Observable&lt;Result&lt;List&lt;Blog&gt;&gt;&gt; getBlogs();  
+</span><span class='line'>}  
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;使用：
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;BlogService service = retrofit.create(BlogService.class);  
+</span><span class='line'>service.getBlogs(1)  
+</span><span class='line'>  .subscribeOn(Schedulers.io())  
+</span><span class='line'>  .subscribe(new Subscriber&lt;Result&lt;List&lt;Blog&gt;&gt;&gt;() {  
+</span><span class='line'>  @Override  
+</span><span class='line'>  public void onCompleted() {  
+</span><span class='line'>    System.out.println("onCompleted");  
+</span><span class='line'>  }  
+</span><span class='line'>
+</span><span class='line'>  @Override  
+</span><span class='line'>  public void onError(Throwable e) {  
+</span><span class='line'>    System.err.println("onError");  
+</span><span class='line'>  }  
+</span><span class='line'>
+</span><span class='line'>  @Override  
+</span><span class='line'>  public void onNext(Result&lt;List&lt;Blog&gt;&gt; blogsResult) {  
+</span><span class='line'>    System.out.println(blogsResult);  
+</span><span class='line'>  }  
+</span><span class='line'>  });  
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;结果：
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;Result{code=200, msg='OK', data=[Blog{id=1, date='2016-04-15 03:17:50', author='怪盗kidou', title='Retrofit2 测试1', content='这里是 Retrofit2 Demo 测试服务器1'},.....], count=20, page=1}  
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;```
+</span><span class='line'>示例源码见 Example08.java
+</span><span class='line'>「20160608补充」：像上面的这种情况最后我们无法获取到返回的Header和响应码的，如果我们需要这两者，提供两种方案：
+</span><span class='line'>1、 用Observable&lt;Response&lt;T&gt;&gt;Observable&lt;T&gt; ,这里的Response指retrofit2.Response
+</span><span class='line'>2、 用Observable&lt;Result&lt;T&gt;&gt; 代替Observable&lt;T&gt;，这里的Result是指retrofit2.adapter.rxjava.Result,这个Result中包含了Response的实例&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;h3&gt;7、其它说明&lt;/h3&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;h4&gt;7.1 Retrofit.Builder&lt;/h4&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;前面用到了 Retrofit.Builder 中的baseUrl、addCallAdapterFactory、addConverterFactory、build方法，还有callbackExecutor、callFactory、client、validateEagerly这四个方法没有用到，这里简单的介绍一下。
+</span><span class='line'>&lt;img src="http://i.imgur.com/g5BMOP9.jpg" alt="" /&gt;&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;&lt;img src="http://i.imgur.com/bdGn5UN.jpg" alt="" /&gt;&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;h4&gt;7.2 Retrofit的Url组合规则&lt;/h4&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;从上面不能难看出以下规则：
+</span><span class='line'>- 如果你在注解中提供的url是完整的url，则url将作为请求的url。
+</span><span class='line'>- 如果你在注解中提供的url是不完整的url，且不以 / 开头，则请求的url为baseUrl+注解中提供的值
+</span><span class='line'>- 如果你在注解中提供的url是不完整的url，且以 / 开头，则请求的url为baseUrl的主机部分+注解中提供的值&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;h4&gt;7.3 Retrofit提供的Converter&lt;/h4&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt; &lt;img src="http://i.imgur.com/hYRnd3P.jpg" alt="" /&gt;&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;h4&gt;7.4 Retrofit提供的CallAdapter：&lt;/h4&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt; &lt;img src="http://i.imgur.com/kuqfO3f.jpg" alt="" /&gt;&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;h4&gt;7.5 关于源码&lt;/h4&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;看到这儿可能有小伙伴要问为什么源码没有把类拆分到单独的文件，命名也不能体现其用途，这里主要是因为方便大家看源码，而不是将注意力放在反复跳转上，另一方面也是因为同一个例子中不可避免的使用其它小节要介绍的内容，所以就直接用了ExampleXX的形式，不过在项目中千万不要使用这种方式，一定要好好命名，做到见名知意。&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;h3&gt;结语&lt;/h3&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;其它本博客的内容早就已经完成好了，但由于当时HTTP、反射、注解的博客一篇也没有写，所以一直没有发，期间也有不少的博主写了Retrofit2的博文，不过呢没有自定义相关的内容也没有对各个注解进行详解，所以我还是决定发出来帮助一下那此对Retrofit2无从下手同鞋。&lt;/p&gt;
+</span><span class='line'>]]&gt;&lt;/content&gt;
+</span><span class='line'>  &lt;/entry&gt;
+</span><span class='line'>  
+</span><span class='line'>  &lt;entry&gt;
+</span><span class='line'>&lt;title type="html"&gt;&lt;![CDATA[Rxjava]]&gt;&lt;/title&gt;
+</span><span class='line'>&lt;link href="http://songdo.github.io/blog/2017/03/25/rxjava/"/&gt;
+</span><span class='line'>&lt;updated&gt;2017-03-25T22:25:35+08:00&lt;/updated&gt;
+</span><span class='line'>&lt;id&gt;http://songdo.github.io/blog/2017/03/25/rxjava&lt;/id&gt;
+</span><span class='line'>&lt;content type="html"&gt;&lt;![CDATA[&lt;h2&gt;RxJava框架&lt;/h2&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;&lt;u&gt;RxJava&lt;/u&gt;正在&lt;font color=red size=3&gt;&lt;strong&gt;Android&lt;/strong&gt;&lt;/font&gt;开发者中变的越来越流行。唯一的问题就是上手不容易，尤其是大部分人之前都是使用命令式编程语言。但是一旦你弄明白了，你就会发现RxJava真是太棒了。
+</span><span class='line'>这里仅仅是帮助你了解RxJava，整个系列共有四篇文章，希望你看完这四篇文章之后能够了解RxJava背后的思想，并且喜欢上RxJava。&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;h3&gt;基础&lt;/h3&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;RxJava最核心的两个东西是Observables（被观察者，事件源）和Subscribers（观察者）。Observables发出一系列事件，Subscribers处理这些事件。这里的事件可以是任何你感兴趣的东西（触摸事件，web接口调用返回的数据。。。）&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;!--more--&gt;
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;一个Observable可以发出零个或者多个事件，知道结束或者出错。每发出一个事件，就会调用它的Subscriber的onNext方法，最后调用Subscriber.onNext()或者Subscriber.onError()结束。&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;Rxjava的看起来很想设计模式中的观察者模式，但是有一点明显不同，那就是如果一个Observerble没有任何的的Subscriber，那么这个Observable是不会发出任何事件的。
+</span><span class='line'>Hello World
+</span><span class='line'>创建一个Observable对象很简单，直接调用Observable.create即可
+</span><span class='line'>&lt;code&gt;
+</span><span class='line'>Observable&lt;String&gt; myObservable = Observable.create(
+</span><span class='line'>    new Observable.OnSubscribe&lt;String&gt;() {
+</span><span class='line'>        @Override
+</span><span class='line'>        public void call(Subscriber&lt;? super String&gt; sub) {
+</span><span class='line'>        sub.onNext("Hello, world!");
+</span><span class='line'>            sub.onCompleted();
+</span><span class='line'>        }
+</span><span class='line'>    }
+</span><span class='line'>);
+</span><span class='line'>&lt;/code&gt;
+</span><span class='line'>这里定义的Observable对象仅仅发出一个Hello World字符串，然后就结束了。接着我们创建一个Subscriber来处理Observable对象发出的字符串。</span></code></pre></td></tr></table></div></figure>
+    Subscriber<String> mySubscriber = new Subscriber<String>() {
+        @Override
+        public void onNext(String s) { System.out.println(s); }</p>
+
+<pre><code>    @Override
+    public void onCompleted() { }
+
+    @Override
+    public void onError(Throwable e) { }
+};
+</code></pre>
+
+<pre><code>这里subscriber仅仅就是打印observable发出的字符串。通过subscribe函数就可以将我们定义的myObservable对象和mySubscriber对象关联起来，这样就完成了subscriber对observable的订阅。
+</code></pre>
+
+<pre><code>myObservable.subscribe(mySubscriber);
+</code></pre>
+
+<pre><code>一旦mySubscriber订阅了myObservable，myObservable就是调用mySubscriber对象的onNext和onComplete方法，mySubscriber就会打印出Hello World！
+#####更简洁的代码
+是不是觉得仅仅为了打印一个hello world要写这么多代码太啰嗦？我这里主要是为了展示RxJava背后的原理而采用了这种比较啰嗦的写法，RxJava其实提供了很多便捷的函数来帮助我们减少代码。
+
+首先来看看如何简化Observable对象的创建过程。RxJava内置了很多简化创建Observable对象的函数，比如Observable.just就是用来创建只发出一个事件就结束的Observable对象，上面创建Observable对象的代码可以简化为一行
+</code></pre>
+
+<pre><code>Observable&lt;String&gt; myObservable = Observable.just("Hello, world!");
+</code></pre>
+
+<pre><code>接下来看看如何简化Subscriber，上面的例子中，我们其实并不关心OnComplete和OnError，我们只需要在onNext的时候做一些处理，这时候就可以使用Action1类。
+</code></pre>
+
+<pre><code>Action1&lt;String&gt; onNextAction = new Action1&lt;String&gt;() {
+    @Override
+    public void call(String s) {
+        System.out.println(s);
+    }
+};
+</code></pre>
+
+<pre><code>subscribe方法有一个重载版本，接受三个Action1类型的参数，分别对应OnNext，OnComplete， OnError函数。
+</code></pre>
+
+<pre><code>myObservable.subscribe(onNextAction, onErrorAction, onCompleteAction);
+</code></pre>
+
+<pre><code>这里我们并不关心onError和onComplete，所以只需要第一个参数就可以
+</code></pre>
+
+<pre><code>myObservable.subscribe(onNextAction);
+// Outputs "Hello, world!"
+</code></pre>
+
+<pre><code>上面的代码最终可以写成这样
+</code></pre>
+
+<pre><code>Observable.just("Hello, world!")
+    .subscribe(new Action1&lt;String&gt;() {
+        @Override
+        public void call(String s) {
+              System.out.println(s);
+        }
+    });
+</code></pre>
+
+<pre><code>使用java8的lambda可以使代码更简洁
+</code></pre>
+
+<pre><code>Observable.just("Hello, world!")
+    .subscribe(s -&gt; System.out.println(s));
+</code></pre>
+
+<pre><code>Android开发中，强烈推荐使用retrolambda这个gradle插件，这样你就可以在你的代码中使用lambda了。
+####变换
+让我们做一些更有趣的事情吧！
+比如我想在hello world中加上我的签名，你可能会想到去修改Observable对象：
+</code></pre>
+
+<pre><code>Observable.just("Hello, world! -Dan")
+    .subscribe(s -&gt; System.out.println(s));
+</code></pre>
+
+<pre><code>如果你能够改变Observable对象，这当然是可以的，但是如果你不能修改Observable对象呢？比如Observable对象是第三方库提供的？比如我的Observable对象被多个Subscriber订阅，但是我只想在对某个订阅者做修改呢？
+那么在Subscriber中对事件进行修改怎么样呢？比如下面的代码：
+</code></pre>
+
+<pre><code>Observable.just("Hello, world!")
+    .subscribe(s -&gt; System.out.println(s + " -Dan"));
+</code></pre>
+
+<pre><code>这种方式仍然不能让人满意，因为我希望我的Subscribers越轻量越好，因为我有可能会在mainThread中运行subscriber。另外，根据响应式函数编程的概念，Subscribers更应该做的事情是“响应”，响应Observable发出的事件，而不是去修改。如果我能在某些中间步骤中对“Hello World！”进行变换是不是很酷？
+###操作符（Operators）
+操作符就是为了解决对Observable对象的变换的问题，操作符用于在Observable和最终的Subscriber之间修改Observable发出的事件。RxJava提供了很多很有用的操作符。
+比如map操作符，就是用来把一个事件转换为另一个事件的。
+</code></pre>
+
+<pre><code>Observable.just("Hello, world!")
+  .map(new Func1&lt;String, String&gt;() {
+      @Override
+      public String call(String s) {
+      return s + " -Dan";
+      }
+  })
+  .subscribe(s -&gt; System.out.println(s));
+</code></pre>
+
+<pre><code>使用lambda可以简化为
+</code></pre>
+
+<pre><code>Observable.just("Hello, world!")
+    .map(s -&gt; s + " -Dan")
+    .subscribe(s -&gt; System.out.println(s));
+</code></pre>
+
+<pre><code>是不是很酷？map()操作符就是用于变换Observable对象的，map操作符返回一个Observable对象，这样就可以实现链式调用，在一个Observable对象上多次使用map操作符，最终将最简洁的数据传递给Subscriber对象。
+###map操作符进阶
+map操作符更有趣的一点是它不必返回Observable对象返回的类型，&lt;u&gt;你可以使用map操作符返回一个发出新的数据类型的observable对象。&lt;/u&gt;
+比如上面的例子中，subscriber并不关心返回的字符串，而是想要字符串的hash值
+</code></pre>
+
+<pre><code>Observable.just("Hello, world!")
+    .map(new Func1&lt;String, Integer&gt;() {
+        @Override
+        public Integer call(String s) {
+            return s.hashCode();
+        }
+    })
+    .subscribe(i -&gt; System.out.println(Integer.toString(i)));
+</code></pre>
+
+<pre><code>很有趣吧？我们初始的Observable返回的是字符串，最终的Subscriber收到的却是Integer，当然使用lambda可以进一步简化代码：
+</code></pre>
+
+<pre><code>Observable.just("Hello, world!")
+    .map(s -&gt; s.hashCode())
+    .subscribe(i -&gt; System.out.println(Integer.toString(i)));
+</code></pre>
+
+<pre><code>前面说过，Subscriber做的事情越少越好，我们再增加一个map操作符
+</code></pre>
+
+<pre><code>Observable.just("Hello, world!")
+    .map(s -&gt; s.hashCode())
+    .map(i -&gt; Integer.toString(i))
+    .subscribe(s -&gt; System.out.println(s));
+</code></pre>
+
+<p>```</p>
+
+<h4>不服？</h4>
+
+<p>是不是觉得我们的例子太简单，不足以说服你？你需要明白下面的两点:
+1. Observable和Subscriber可以做任何事情
+<u>Observable可以是一个数据库查询，Subscriber用来显示查询结果</u>；Observable可以是屏幕上的点击事件，Subscriber用来响应点击事件；<u>Observable可以是一个网络请求，Subscriber用来显示请求结果</u>。</p>
+
+<ol>
+<li>Observable和Subscriber是独立于中间的变换过程的。
+在Observable和Subscriber中间可以增减任何数量的map。整个系统是高度可组合的，操作数据是一个很简单的过程。</li>
+</ol>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[]]></title>
+    <link href="http://songdo.github.io/blog/2017/03/25/frame-built/"/>
+    <updated>2017-03-25T15:51:39+08:00</updated>
+    <id>http://songdo.github.io/blog/2017/03/25/frame-built</id>
+    <content type="html"><![CDATA[<h2>Android框架搭建</h2>
+
+<h4>Android MVP Pattern</h4>
+
+<p>Android MVP 模式1 也不是什么新鲜的东西了，我在自己的项目里也普遍地使用了这个设计模式。当项目越来越庞大、复杂，参与的研发人员越来越多的时候，MVP 模式的优势就充分显示出来了。</p>
+
+<blockquote><p>导读：MVP模式是MVC模式在Android上的一种变体，要介绍MVP就得先介绍MVC。在MVC模式中，Activity应该是属于View这一层。而实质上，它既承担了View，同时也包含一些Controller的东西在里面。这对于开发与维护来说不太友好，耦合度大高了。把Activity的View和Controller抽离出来就变成了View和Presenter，这就是MVP模式。</p></blockquote>
+
+<p>MVP模式（Model-View-Presenter）可以说是MVC模式（Model-View-Controller）在Android开发上的一种变种、进化模式。后者大家可能比较熟悉，就算不熟悉也可能或多或少地在自己的项目中用到过。要介绍MVP模式，就不得不先说说MVC模式。</p>
+
+<!--more-->
+
+
+<h4>MVC模式</h4>
+
+<p>MVC模式的结构分为三部分，实体层的Model，视图层的View，以及控制层的Controller。
+<img src="http://i.imgur.com/wnPXw7u.png" alt="" /></p>
+
+<ul>
+<li>其中View层其实就是程序的UI界面，用于向用户展示数据以及接收用户的输入</li>
+<li>而Model层就是JavaBean实体类，用于保存实例数据</li>
+<li>Controller控制器用于更新UI界面和数据实例</li>
+</ul>
+
+
+<p>例如，View层接受用户的输入，然后通过Controller修改对应的Model实例；同时，当Model实例的数据发生变化的时候，需要修改UI界面，可以通过Controller更新界面。（View层也可以直接更新Model实例的数据，而不用每次都通过Controller，这样对于一些简单的数据更新工作会变得方便许多。）
+举个简单的例子，现在要实现一个飘雪的动态壁纸，可以给雪花定义一个实体类Snow，里面存放XY轴坐标数据，View层当然就是SurfaceView（或者其他视图），为了实现雪花飘的效果，可以启动一个后台线程，在线程里不断更新Snow实例里的坐标值，这部分就是Controller的工作了，Controller里还要定时更新SurfaceView上面的雪花。进一步的话，可以在SurfaceView上监听用户的点击，如果用户点击，只通过Controller对触摸点周围的Snow的坐标值进行调整，从而实现雪花在用户点击后出现弹开等效果。具体的MVC模式请自行Google。</p>
+
+<h3>MVP模式</h3>
+
+<p>在Android项目中，Activity和Fragment占据了大部分的开发工作。如果有一种设计模式（或者说代码结构）专门是为优化Activity和Fragment的代码而产生的，你说这种模式重要不？这就是MVP设计模式。
+按照MVC的分层，Activity和Fragment（后面只说Activity）应该属于View层，用于展示UI界面，以及接收用户的输入，此外还要承担一些生命周期的工作。Activity是在Android开发中充当非常重要的角色，特别是TA的生命周期的功能，所以开发的时候我们经常把一些业务逻辑直接写在Activity里面，这非常直观方便，代价就是Activity会越来越臃肿，超过1000行代码是常有的事，而且如果是一些可以通用的业务逻辑（比如用户登录），写在具体的Activity里就意味着这个逻辑不能复用了。如果有进行代码重构经验的人，看到1000+行的类肯定会有所顾虑。因此，Activity不仅承担了View的角色，还承担了一部分的Controller角色，这样一来V和C就耦合在一起了，虽然这样写方便，但是如果业务调整的话，要维护起来就难了，而且在一个臃肿的Activity类查找业务逻辑的代码也会非常蛋疼，所以看起来有必要在Activity中，把View和Controller抽离开来，而这就是MVP模式的工作了。</p>
+
+<p><img src="http://i.imgur.com/2MUWo6j.png" alt="" /></p>
+
+<h4>MVP模式的核心思想：</h4>
+
+<p><strong>MVP把Activity中的UI逻辑抽象成View接口，把业务逻辑抽象成Presenter接口，Model类还是原来的Model。</strong>
+这就是MVP模式，现在这样的话，Activity的工作的简单了，只用来响应生命周期，其他工作都丢到Presenter中去完成。从上图可以看出，Presenter是Model和View之间的桥梁，为了让结构变得更加简单，View并不能直接对Model进行操作，这也是MVP与MVC最大的不同之处。</p>
+
+<h4>MVP模式的作用</h4>
+
+<p>MVP的好处都有啥，谁说对了就给他 KIRA!!(&lt;ゝω·)☆
+- 分离了视图逻辑和业务逻辑，降低了耦合
+- Activity只处理生命周期的任务，代码变得更加简洁
+- 视图逻辑和业务逻辑分别抽象到了View和Presenter的接口中去，提高代码的可阅读性
+- Presenter被抽象成接口，可以有多种具体的实现，所以方便进行单元测试
+- 把业务逻辑抽到Presenter中去，避免后台线程引用着Activity导致Activity的资源无法被系统回收从而引起内存泄露和OOM
+其中最重要的有三点：</p>
+
+<h4>Activity 代码变得更加简洁</h4>
+
+<p>相信很多人阅读代码的时候，都是从Activity开始的，对着一个1000+行代码的Activity，看了都觉得难受。
+使用MVP之后，Activity就能瘦身许多了，基本上只有FindView、SetListener以及Init的代码。其他的就是对Presenter的调用，还有对View接口的实现。这种情形下阅读代码就容易多了，而且你只要看Presenter的接口，就能明白这个模块都有哪些业务，很快就能定位到具体代码。Activity变得容易看懂，容易维护，以后要调整业务、删减功能也就变得简单许多。</p>
+
+<h4>方便进行单元测试</h4>
+
+<p>一般单元测试都是用来测试某些新加的业务逻辑有没有问题，如果采用传统的代码风格（习惯性上叫做MV模式，少了P），我们可能要先在Activity里写一段测试代码，测试完了再把测试代码删掉换成正式代码，这时如果发现业务有问题又得换回测试代码，咦，测试代码已经删掉了！好吧重新写吧……
+MVP中，由于业务逻辑都在Presenter里，我们完全可以写一个PresenterTest的实现类继承Presenter的接口，现在只要在Activity里把Presenter的创建换成PresenterTest，就能进行单元测试了，测试完再换回来即可。万一发现还得进行测试，那就再换成PresenterTest吧。</p>
+
+<h4>避免 Activity 的内存泄露</h4>
+
+<p>Android APP 发生OOM的最大原因就是出现内存泄露造成APP的内存不够用，而造成内存泄露的两大原因之一就是Activity泄露（Activity Leak）（另一个原因是Bitmap泄露（Bitmap Leak））。
+Java一个强大的功能就是其虚拟机的内存回收机制，这个功能使得Java用户在设计代码的时候，不用像C++用户那样考虑对象的回收问题。然而，Java用户总是喜欢随便写一大堆对象，然后幻想着虚拟机能帮他们处理好内存的回收工作。可是虚拟机在回收内存的时候，只会回收那些没有被引用的对象，被引用着的对象因为还可能会被调用，所以不能回收。
+Activity是有生命周期的，用户随时可能切换Activity，当APP的内存不够用的时候，系统会回收处于后台的Activity的资源以避免OOM。
+采用传统的MV模式，一大堆异步任务和对UI的操作都放在Activity里面，比如你可能从网络下载一张图片，在下载成功的回调里把图片加载到 Activity 的 ImageView 里面，所以异步任务保留着对Activity的引用。这样一来，即使Activity已经被切换到后台（onDestroy已经执行），这些异步任务仍然保留着对Activity实例的引用，所以系统就无法回收这个Activity实例了，结果就是Activity Leak。Android的组件中，Activity对象往往是在堆（Java Heap）里占最多内存的，所以系统会优先回收Activity对象，如果有Activity Leak，APP很容易因为内存不够而OOM。
+采用MVP模式，只要在当前的Activity的onDestroy里，分离异步任务对Activity的引用，就能避免 Activity Leak。
+说了这么多，没看懂？好吧，我自己都没看懂自己写的，我们还是直接看代码吧。</p>
+
+<h4>MVP模式的使用</h4>
+
+<p><img src="http://i.imgur.com/GaP5TKo.png" alt="" /></p>
+
+<p>上面一张简单的MVP模式的UML图，从图中可以看出，使用MVP，至少需要经历以下步骤：
+1.  创建IPresenter接口，把所有业务逻辑的接口都放在这里，并创建它的实现PresenterCompl（在这里可以方便地查看业务功能，由于接口可以有多种实现所以也方便写单元测试）
+2.  创建IView接口，把所有视图逻辑的接口都放在这里，其实现类是当前的Activity/Fragment
+3.  由UML图可以看出，Activity里包含了一个IPresenter，而PresenterCompl里又包含了一个IView并且依赖了Model。Activity里只保留对IPresenter的调用，其它工作全部留到PresenterCompl中实现
+4.  Model并不是必须有的，但是一定会有View和Presenter</p>
+
+<p>通过上面的介绍，MVP的主要特点就是把Activity里的许多逻辑都抽离到View和Presenter接口中去，并由具体的实现类来完成。这种写法多了许多IView和IPresenter的接口，在某种程度上加大了开发的工作量，刚开始使用MVP的小伙伴可能会觉得这种写法比较别扭，而且难以记住。其实一开始想太多也没有什么卵用，只要在具体项目中多写几次，就能熟悉MVP模式的写法，理解TA的意图，以及享♂受其带来的好处。
+扯了这么多，但是好像并没有什么卵用，毕竟
+Talk is cheap, let me show you the code!
+所以还是来写一下实际的项目吧。</p>
+
+<h4>MVP模式简单实例</h4>
+
+<p>一个简单的登录界面（实在想不到别的了╮(￣▽￣")╭），点击LOGIN则进行账号密码验证，点击CLEAR则重置输入。</p>
+
+<p><img src="http://i.imgur.com/sKVehqc.png" alt="" /></p>
+
+<p>项目结构看起来像是这个样子的，MVP的分层还是很清晰的。我的习惯是先按模块分Package，在模块下面再去创建model、view、presenter的子Package，当然也可以用model、view、presenter作为顶级的Package，然后把所有的模块的model、view、presenter类都到这三个顶级Package中，就好像有人喜欢把项目里所有的Activity、Fragment、Adapter都放在一起一样。
+首先来看看LoginActivity
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+<span class='line-number'>70</span>
+<span class='line-number'>71</span>
+<span class='line-number'>72</span>
+<span class='line-number'>73</span>
+<span class='line-number'>74</span>
+<span class='line-number'>75</span>
+<span class='line-number'>76</span>
+<span class='line-number'>77</span>
+<span class='line-number'>78</span>
+<span class='line-number'>79</span>
+<span class='line-number'>80</span>
+<span class='line-number'>81</span>
+<span class='line-number'>82</span>
+<span class='line-number'>83</span>
+<span class='line-number'>84</span>
+<span class='line-number'>85</span>
+<span class='line-number'>86</span>
+<span class='line-number'>87</span>
+<span class='line-number'>88</span>
+<span class='line-number'>89</span>
+<span class='line-number'>90</span>
+<span class='line-number'>91</span>
+<span class='line-number'>92</span>
+<span class='line-number'>93</span>
+<span class='line-number'>94</span>
+<span class='line-number'>95</span>
+<span class='line-number'>96</span>
+<span class='line-number'>97</span>
+<span class='line-number'>98</span>
+<span class='line-number'>99</span>
+<span class='line-number'>100</span>
+<span class='line-number'>101</span>
+<span class='line-number'>102</span>
+<span class='line-number'>103</span>
+<span class='line-number'>104</span>
+<span class='line-number'>105</span>
+<span class='line-number'>106</span>
+<span class='line-number'>107</span>
+<span class='line-number'>108</span>
+<span class='line-number'>109</span>
+<span class='line-number'>110</span>
+<span class='line-number'>111</span>
+<span class='line-number'>112</span>
+<span class='line-number'>113</span>
+<span class='line-number'>114</span>
+<span class='line-number'>115</span>
+<span class='line-number'>116</span>
+<span class='line-number'>117</span>
+<span class='line-number'>118</span>
+<span class='line-number'>119</span>
+<span class='line-number'>120</span>
+<span class='line-number'>121</span>
+<span class='line-number'>122</span>
+<span class='line-number'>123</span>
+<span class='line-number'>124</span>
+<span class='line-number'>125</span>
+<span class='line-number'>126</span>
+<span class='line-number'>127</span>
+<span class='line-number'>128</span>
+<span class='line-number'>129</span>
+<span class='line-number'>130</span>
+<span class='line-number'>131</span>
+<span class='line-number'>132</span>
+<span class='line-number'>133</span>
+<span class='line-number'>134</span>
+<span class='line-number'>135</span>
+<span class='line-number'>136</span>
+<span class='line-number'>137</span>
+<span class='line-number'>138</span>
+<span class='line-number'>139</span>
+<span class='line-number'>140</span>
+<span class='line-number'>141</span>
+<span class='line-number'>142</span>
+<span class='line-number'>143</span>
+<span class='line-number'>144</span>
+<span class='line-number'>145</span>
+<span class='line-number'>146</span>
+<span class='line-number'>147</span>
+<span class='line-number'>148</span>
+<span class='line-number'>149</span>
+<span class='line-number'>150</span>
+<span class='line-number'>151</span>
+<span class='line-number'>152</span>
+<span class='line-number'>153</span>
+<span class='line-number'>154</span>
+<span class='line-number'>155</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>public class LoginActivity extends ActionBarActivity implements ILoginView, View.OnClickListener {&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;private EditText editUser;
+</span><span class='line'>private EditText editPass;
+</span><span class='line'>private Button   btnLogin;
+</span><span class='line'>private Button   btnClear;
+</span><span class='line'>ILoginPresenter loginPresenter;
+</span><span class='line'>private ProgressBar progressBar;
+</span><span class='line'>
+</span><span class='line'>@Override
+</span><span class='line'>protected void onCreate(Bundle savedInstanceState) {
+</span><span class='line'>    super.onCreate(savedInstanceState);
+</span><span class='line'>    setContentView(R.layout.activity_main);
+</span><span class='line'>
+</span><span class='line'>    //find view
+</span><span class='line'>    editUser = (EditText) this.findViewById(R.id.et_login_username);
+</span><span class='line'>    editPass = (EditText) this.findViewById(R.id.et_login_password);
+</span><span class='line'>    btnLogin = (Button) this.findViewById(R.id.btn_login_login);
+</span><span class='line'>    btnClear = (Button) this.findViewById(R.id.btn_login_clear);
+</span><span class='line'>    progressBar = (ProgressBar) this.findViewById(R.id.progress_login);
+</span><span class='line'>    //set listener
+</span><span class='line'>    btnLogin.setOnClickListener(this);
+</span><span class='line'>    btnClear.setOnClickListener(this);
+</span><span class='line'>
+</span><span class='line'>    //init
+</span><span class='line'>    loginPresenter = new LoginPresenterCompl(this);
+</span><span class='line'>    loginPresenter.setProgressBarVisiblity(View.INVISIBLE);
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>@Override
+</span><span class='line'>public void onClick(View v) {
+</span><span class='line'>    switch (v.getId()){
+</span><span class='line'>        case R.id.btn_login_clear:
+</span><span class='line'>            loginPresenter.clear();
+</span><span class='line'>            break;
+</span><span class='line'>        case R.id.btn_login_login:
+</span><span class='line'>            loginPresenter.setProgressBarVisiblity(View.VISIBLE);
+</span><span class='line'>            btnLogin.setEnabled(false);
+</span><span class='line'>            btnClear.setEnabled(false);
+</span><span class='line'>            loginPresenter.doLogin(editUser.getText().toString(), editPass.getText().toString());
+</span><span class='line'>            break;
+</span><span class='line'>    }
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>@Override
+</span><span class='line'>public void onClearText() {
+</span><span class='line'>    editUser.setText("");
+</span><span class='line'>    editPass.setText("");
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>@Override
+</span><span class='line'>public void onLoginResult(Boolean result, int code) {
+</span><span class='line'>    loginPresenter.setProgressBarVisiblity(View.INVISIBLE);
+</span><span class='line'>    btnLogin.setEnabled(true);
+</span><span class='line'>    btnClear.setEnabled(true);
+</span><span class='line'>    if (result){
+</span><span class='line'>        Toast.makeText(this,"Login Success",Toast.LENGTH_SHORT).show();
+</span><span class='line'>        startActivity(new Intent(this, HomeActivity.class));
+</span><span class='line'>    }
+</span><span class='line'>    else
+</span><span class='line'>        Toast.makeText(this,"Login Fail, code = " + code,Toast.LENGTH_SHORT).show();
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>@Override
+</span><span class='line'>public void onSetProgressBarVisibility(int visibility) {
+</span><span class='line'>    progressBar.setVisibility(visibility);
+</span><span class='line'>}
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;}`&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;从代码可以看出LoginActivity只做了findView以及setListener的工作，而且包含了一个ILoginPresenter，所有业务逻辑都是通过调用ILoginPresenter的具体接口来完成。所以LoginActivity的代码看起来很舒爽，甚至有点愉♂悦呢 (/ω＼*)。视力不错的你可能还看到了ILoginView接口的实现，如果不懂为什么要这样写的话，可以先往下看，这里只要记住LoginActivity实现了ILoginView接口。
+</span><span class='line'>再来看看ILoginPresenter
+</span><span class='line'>`public interface ILoginPresenter {
+</span><span class='line'>    void clear();
+</span><span class='line'>    void doLogin(String name, String passwd);
+</span><span class='line'>    void setProgressBarVisiblity(int visiblity);
+</span><span class='line'>}
+</span><span class='line'>public class LoginPresenterCompl implements ILoginPresenter {
+</span><span class='line'>    ILoginView iLoginView;
+</span><span class='line'>    IUser user;
+</span><span class='line'>    Handler    handler;&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;pre&gt;&lt;code&gt;public LoginPresenterCompl(ILoginView iLoginView) {
+</span><span class='line'>    this.iLoginView = iLoginView;
+</span><span class='line'>    initUser();
+</span><span class='line'>    handler = new Handler(Looper.getMainLooper());
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>@Override
+</span><span class='line'>public void clear() {
+</span><span class='line'>    iLoginView.onClearText();
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>@Override
+</span><span class='line'>public void doLogin(String name, String passwd) {
+</span><span class='line'>    Boolean isLoginSuccess = true;
+</span><span class='line'>    final int code = user.checkUserValidity(name,passwd);
+</span><span class='line'>    if (code!=0) isLoginSuccess = false;
+</span><span class='line'>    final Boolean result = isLoginSuccess;
+</span><span class='line'>    handler.postDelayed(new Runnable() {
+</span><span class='line'>        @Override
+</span><span class='line'>        public void run() {
+</span><span class='line'>            iLoginView.onLoginResult(result, code);
+</span><span class='line'>        }
+</span><span class='line'>    }, 3000);
+</span><span class='line'>
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>@Override
+</span><span class='line'>public void setProgressBarVisiblity(int visiblity){
+</span><span class='line'>    iLoginView.onSetProgressBarVisibility(visiblity);
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>private void initUser(){
+</span><span class='line'>    user = new UserModel("mvp","mvp");
+</span><span class='line'>}
+</span><span class='line'>&lt;/code&gt;&lt;/pre&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;}&lt;code&gt;
+</span><span class='line'>从代码可以看出，LoginPresenterCompl保留了ILoginView的引用，因此在LoginPresenterCompl里就可以直接进行UI操作了，而不用在Activity里完成。这里使用了ILoginView引用，而不是直接使用Activity，这样一来，如果在别的Activity里也需要用到相同的业务逻辑，就可以直接复用LoginPresenterCompl类了（一个Activity可以包含一个以上的Presenter，总之，需要什么业务就new什么样的Presenter，是不是很灵活（＠￣︶￣＠）），这也是MVP的核心思想
+</span><span class='line'>通过IVIew和IPresenter，把Activity的UI Logic和Business Logic分离开来，Activity just does its basic job! 至于Model嘛，还是原来MVC里的Model。
+</span><span class='line'>再来看看ILoginView，至于ILoginView的实现类呢，翻到上面看看LoginActivity吧
+</span><span class='line'>&lt;/code&gt;public interface ILoginView {
+</span><span class='line'>    public void onClearText();
+</span><span class='line'>    public void onLoginResult(Boolean result, int code);
+</span><span class='line'>    public void onSetProgressBarVisibility(int visibility);
+</span><span class='line'>}```
+</span><span class='line'>代码这种东西放在日志里讲好像除了把整个版面拉长没什么卵用，我把几种自己常用的MVP的写法写成一个Demo项目，欢迎围观和PullRequest：Android-MVP-Pattern。
+</span><span class='line'>后记
+</span><span class='line'>以上就是我的MVP模式的一点理解，在MVVM模式还没有成熟的现在，我觉得没有比MVP模式更好的替代品了。当然今天写的只是MVP的基础使用，介绍的实例项目也非常简单，看不出MVP的优势，后面还会针对MVP模式写一些日志，就目前能想到的至少包括
+</span><span class='line'>- Android常规的开发模式经常被称为MV模式（Model-View），引入数据绑定后的MVVM模式（Model-View-ViewModel），与MVP模式的区别
+</span><span class='line'>- 目前我们写ListView的Adapter都喜欢把它写成一个内部类，如果有两个Activity里要用同一个Adapter就比较难了，通过MVP模式，能轻松地复用Adapter（你说已经不用ListView了，这不是重点不是么( ˃◡˂ )）
+</span><span class='line'>- MVP模式需要多写许多新的接口，这也是其缺点所在，经过一段时间的实战，我自己已有一种优化的MVP模式，我会试着总结一下，把她拿出来说说&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;hr /&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;ol&gt;
+</span><span class='line'>&lt;li&gt;我也纠结过MVP模式或者MVP结构的说法那个跟准确一点，国外普遍的叫法是直接叫Android MVP，除此之外有叫MVP Pattern的也有叫MVP Framework/Architecture，个人认为这应该算是一种代码风格（Code Style），在分类上应该比较类似设计模式（Design Pattern），所以现在我一般称为模式，不过这不是重点，不是吗。( ˃◡˂ ) ↩&lt;/li&gt;
+</span><span class='line'>&lt;/ol&gt;
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;这个项目简单封装了一个简单的MVP设计框架，根据框架可以很容易的在你自己的项目中实现 MVP 设计模式。继承我封装好的 BaseActivity，BaseFragmentActivity，BaseSwipeRefreshActivity，BaseFragment，BaseSwipseRefreshFragment 可以很好的实现 MVP 模式的项目开发。也许你知道 所谓的MVP 设计模式就是：
+</span><span class='line'>M就是Model ，这里主要负责的就是业务处理，数据的获取，例如数据库的读写，http的网络数据的处理。
+</span><span class='line'>V就是View ，顾名思义视图的意思，这里主要的任务就是处理各个界面ui控件的处理。
+</span><span class='line'>P就是Presenter ，控制器，这里负责的是Model与View之间的联系操作。
+</span><span class='line'>其实简单的用一句话描述就是：将View层抽象成view接口，将业务逻辑统统交给 Presenter 层去做。
+</span><span class='line'>也许还不太了解或是已经了解的可以来看下面的 demo
+</span><span class='line'>下面的一个 activity 需要完成的功能是
+</span><span class='line'>(1)显示初始化数据 list data
+</span><span class='line'>(2)下拉刷新能加载新数据
+</span><span class='line'>(3)数据加载成功，或出错做一些提示交互。
+</span><span class='line'>其实这些基本内容是我们经常和大量用到的一些场景。那来看看咱们怎么利用mvp模式来分层实现：首先继承我封装好了的 BaseSwipeRefreshActivity ，并且 自己 实现 MainPresenter 类 和 IRefreshView 接口，那么 MainActivity 就可以实现 简单的 mvp 设计模式了。
+</span><span class='line'>先分析 MVP 中 V层的实现，及 MainActivity 的实现：</span></code></pre></td></tr></table></div></figure>
+public class MainActivity extends BaseSwipeRefreshActivity<MainPresenter> implements IRefreshView<String> {
+    @Bind(R.id.toolbar)
+    protected Toolbar mToolbar;</p>
+
+<pre><code>@Bind(R.id.swipe_refresh_layout)
+protected SwipeRefreshLayout mSwipeRefreshLayout;
+
+@Bind(R.id.main_RecyclerView)
+RecyclerView main_RecyclerView;
+
+private DataAdapter mMianActivityAdapter;
+private List&lt;String&gt; adapterList = new ArrayList&lt;String&gt;();
+
+@Override
+protected Toolbar getToolbar() {
+    return mToolbar;
+}
+@Override
+protected SwipeRefreshLayout getSwipeRefreshLayout() {
+    return mSwipeRefreshLayout;
+}
+
+@Override
+protected int getLayout() {
+    return R.layout.activity_main;
+}
+@Override
+protected void initPresenter() {
+    mPresenter = new MainPresenter(this, this);
+}
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    initRecycleView();
+
+}
+/**
+ * 初始化请求数据
+ */
+@Override
+protected void intiData() {
+    // 初始化数据
+    mPresenter.initData();
+    // 可刷新状态准备好了
+    mPrepareRefresh = true;
+}
+/**
+ * 刷新请求数据
+ */
+@Override
+protected void onRefreshStarted() {
+    mPresenter.addMoreData();
+}
+@Override
+public void showEmptyView() {
+    SnackbarUtil.PrimarySnackbar(mContext,mToolbar,"请求数据为空");
+}
+@Override
+public void showErrorView(Throwable throwable) {
+    SnackbarUtil.PrimarySnackbar(mContext,mToolbar,"请求数据出错");
+}
+
+@Override
+public void hasNoMoreData() {
+    SnackbarUtil.PrimarySnackbar(mContext,mToolbar,"无更多数据");
+}
+
+/**
+ * 初始化填充数据
+ * @param mData
+ */
+@Override
+public void fillData(List mData) {
+
+    mMianActivityAdapter.insertedAllItem(mData);
+}
+
+/**
+ * 加载更多数据
+ * @param mData
+ */
+@Override
+public void appendMoreDataToView(List mData) {
+    mMianActivityAdapter.appendMoreItem(mData);
+}
+
+@Override
+protected int getMenuRes() {
+    return R.menu.mian_menu;
+}
+
+@Override
+public boolean onOptionsItemSelected(MenuItem item) {
+    int id = item.getItemId();
+    switch (id){
+        case R.id.menu_1:
+            SnackbarUtil.PrimarySnackbar(mContext,mToolbar,"FragmentActivity");
+            Intent intent = new Intent(MainActivity.this,FragmentActivity.class);
+            startActivity(intent);
+            break;
+
+    }
+    return super.onOptionsItemSelected(item);
+}
+
+private void initRecycleView() {
+    final LinearLayoutManager layoutManager = new LinearLayoutManager(this);
+    main_RecyclerView.setLayoutManager(layoutManager);
+    mMianActivityAdapter = new DataAdapter(mContext,adapterList);
+    main_RecyclerView.setAdapter(mMianActivityAdapter);
+}
+</code></pre>
+
+<p>}<code>
+代码看的有点多，不过相对那种把什么功能都放在 activity 来讲已经很少了，而且看上面代码结构清晰，功能明确，职责分明，耦合度低，很适合扩展。 ^-^ ///
+其实上面的 activity 主要负责 (1) view 的 一些初始化，如：
+</code>
+@Bind(R.id.toolbar)
+    protected Toolbar mToolbar;</p>
+
+<pre><code>@Bind(R.id.swipe_refresh_layout)
+protected SwipeRefreshLayout mSwipeRefreshLayout;
+
+@Bind(R.id.main_RecyclerView)
+RecyclerView main_RecyclerView;
+</code></pre>
+
+<p>   private void initRecycleView() {
+        final LinearLayoutManager layoutManager = new LinearLayoutManager(this);
+        main_RecyclerView.setLayoutManager(layoutManager);
+        mMianActivityAdapter = new DataAdapter(mContext,adapterList);
+        main_RecyclerView.setAdapter(mMianActivityAdapter);
+    }
+<code>
+（2）view 的一些更新，如：
+</code>
+@Override
+    public void showEmptyView() {
+        SnackbarUtil.PrimarySnackbar(mContext,mToolbar,&ldquo;请求数据为空&rdquo;);
+    }
+ /<em>*
+     * 初始化填充数据
+     * @param mData
+     </em>/
+    @Override
+    public void fillData(List mData) {</p>
+
+<pre><code>    mMianActivityAdapter.insertedAllItem(mData);
+}
+</code></pre>
+
+<pre><code>而数据的请求部分只有单单两句：
+ mPresenter.initData();
+ mPresenter.addMoreData();
+那么再来看一眼 什么是 MVP 设计模式：
+M就是Model ，这里主要负责的就是业务处理，数据的获取，例如数据库的读写，http的网络数据的处理。
+V就是View ，顾名思义视图的意思，这里主要的任务就是处理各个界面ui控件的处理。
+P就是Presenter ，控制器，这里负责的是Model与View之间的联系操作。
+咱们的 activity 就是 mvp 中的 v 层 ，而且职责明确，只负责 ui 处理的 部分。
+其他都交给了 Presenter 去做， 那咱们接下来再来分析分析 Presenter 是怎么做到 操作model 和 view 之间的联系的。
+分析 MVP 中 P 层的实现 及 MainPresenter：
+先看 activity 有继承 IRefreshView 这个接口
+public class MainActivity extends BaseSwipeRefreshActivity&lt;MainPresenter&gt; implements IRefreshView&lt;String&gt; {
+}
+那么咱们在 Presenter 取得数据 并调用 IRefreshView 接口，并在 MainActivity 实现 该接口的方法，这不就是：
+P就是Presenter ，控制器，这里负责的是Model与View之间的联系操作。
+具体看一下 MainPresenter 类：
+</code></pre>
+
+<p>public class MainPresenter extends BasePresenter<IRefreshView>{</p>
+
+<pre><code>public MainPresenter(Activity context, IRefreshView view) {
+    super(context, view);
+}
+public void initData(){
+    mView.showRefresh();
+    List&lt;String&gt; strList = new ArrayList&lt;String&gt;();
+    for (int i=0;i&lt;10;i++){
+        strList.add(""+i);
+    }
+    mView.getDataFinish();
+    mView.fillData(strList);
+
+}
+public void addMoreData(){
+    mView.showRefresh();
+    List&lt;String&gt; strList = new ArrayList&lt;String&gt;();
+    for (int i=0;i&lt;10;i++){
+        strList.add("more_"+i);
+    }
+    mView.getDataFinish();
+    mView.appendMoreDataToView(strList);
+}
+</code></pre>
+
+<p>}
+<code>
+看
+ mPresenter.initData();
+ mPresenter.addMoreData();
+就是 MainPresenter 类 里面的 方法 ，及Presenter 层，其实请求数据应该是 Model 层的，但咱们的示例代码请求模拟数据太简单的，就没有再弄个 类（及Model 层）来封装。数据请求前有个：
+mView.showRefresh();
+数据请求后有个：
+mView.getDataFinish();
+这就是 persenter 层控制 model 层和 view 层的 作用了。
+接下来看一下 抽象 view ：
+</code>
+public interface IRefreshView<T> extends ISwipeRefreshView {</p>
+
+<pre><code>void fillData(List&lt;T&gt; mData);
+void appendMoreDataToView(List&lt;T&gt; mData);
+void hasNoMoreData();
+</code></pre>
+
+<p>}
+public interface ISwipeRefreshView extends IBaseView {
+    void getDataFinish();
+    void showEmptyView();
+    void showErrorView(Throwable throwable);
+    void showRefresh();
+    void hideRefresh();
+}
+```
+好了，看到这里不知道明白了 MVP 设计模式的原理和好处了没。大概终结一下：activity 或 fragment 或是 视图层要做的一些数据请求从而跟新 视图，可以将中间这些操作交给 persenter 去做，视图只负责 ui 的处理，而 persenter 需要 去操作 modle 得到数据后通知跟新视图，怎么通知呢，就是 利用 接口回调 的形式 更新视图。也就是这开头讲的这么一句话：
+将View层抽象成view接口，将业务逻辑统统交给 Presenter 层去做。
+建议可以下载源码结合本片介绍，会有助于理解，本片博只是简单介绍一下流程，源码做了一点封装，可以到我的github clone ,欢迎stars ，此项目会继续更新维护</p>
+]]></content>
+  </entry>
+  
+</feed>

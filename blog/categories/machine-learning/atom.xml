@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Machine-learning | SY Blog]]></title>
+  <link href="http://songdo.github.io/blog/categories/machine-learning/atom.xml" rel="self"/>
+  <link href="http://songdo.github.io/"/>
+  <updated>2017-03-26T20:13:27+08:00</updated>
+  <id>http://songdo.github.io/</id>
+  <author>
+    <name><![CDATA[songyuan]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Neural Network]]></title>
+    <link href="http://songdo.github.io/blog/2017/03/06/neural-network/"/>
+    <updated>2017-03-06T21:33:55+08:00</updated>
+    <id>http://songdo.github.io/blog/2017/03/06/neural-network</id>
+    <content type="html"><![CDATA[<h1>机器学习-神经网络</h1>
+]]></content>
+  </entry>
+  
+</feed>

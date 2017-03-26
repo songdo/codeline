@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Vr | SY Blog]]></title>
+  <link href="http://songdo.github.io/blog/categories/vr/atom.xml" rel="self"/>
+  <link href="http://songdo.github.io/"/>
+  <updated>2017-03-26T20:13:27+08:00</updated>
+  <id>http://songdo.github.io/</id>
+  <author>
+    <name><![CDATA[songyuan]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Vr]]></title>
+    <link href="http://songdo.github.io/blog/2017/03/06/vr/"/>
+    <updated>2017-03-06T21:34:35+08:00</updated>
+    <id>http://songdo.github.io/blog/2017/03/06/vr</id>
+    <content type="html"><![CDATA[<h1>虚拟现实</h1>
+]]></content>
+  </entry>
+  
+</feed>

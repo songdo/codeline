@@ -1,0 +1,537 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title> - SY Blog</title>
+  <meta name="author" content="songyuan">
+
+  
+  <meta name="description" content="本文注目录： Retrofit入门
+Retrofit注解详解
+Gson与Converter
+RxJava与CallAdapter
+自定义Converter
+自定义CallAdapter
+其它说明 前言 本文中的Retrofit均指代Retrofit2.0。 &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://songdo.github.io/blog/2017/03/25/retrofit2/">
+  <link href="/codeline/favicon.png" rel="icon">
+  <link href="/codeline/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/codeline/atom.xml" rel="alternate" title="SY Blog" type="application/atom+xml">
+  <script src="/codeline/javascripts/modernizr-2.0.js"></script>
+  <script src="//libs.baidu.com/jquery/1.7.2/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="/javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/codeline/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<!-- <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+ -->
+
+<!-- //设置连接在新页面打开 -->
+<script>
+  function addBlankTargetForLinks () {
+    $('a[href^="http"]').each(function(){
+      $(this).attr('target', '_blank');
+    });
+  }
+  $(document).bind('DOMNodeInserted', function(event) {
+    addBlankTargetForLinks();
+  });
+</script>
+
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/codeline/">SY Blog</a></h1>
+  
+    <h2>Sharing makes difference!</h2>
+  
+
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/codeline/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.baidu.com" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="sitesearch" value="songdo.github.io">
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/codeline/">Home</a></li>
+  <li><a href="/codeline/blog/archives">Archives</a></li>
+  <li><a href="/codeline/algorithm">Algorithm</a></li>
+  <!-- <li><a href="/codeline/data-structure">数据结构</a></li> -->
+  <li><a href="/codeline/machine-learning">ML</a></li>
+  <li><a href="/codeline/programing-language">Programing</a></li>
+  <li><a href="/codeline/android">Android</a></li>
+  <li><a href="/codeline/about">About</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+   <!--  
+     <h1 class="entry-title"></h1>
+    -->
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2017-03-25T22:49:52+08:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>25</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>10:49 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><blockquote><h5>本文注目录：</h5>
+
+<ul>
+<li>Retrofit入门</li>
+<li>Retrofit注解详解</li>
+<li>Gson与Converter</li>
+<li>RxJava与CallAdapter</li>
+<li>自定义Converter</li>
+<li>自定义CallAdapter</li>
+<li>其它说明</li>
+</ul>
+</blockquote>
+
+<h4>前言</h4>
+
+<p>本文中的Retrofit均指代Retrofit2.0。
+本文涉及到的代码以及测试使用的接口可在Github上找到。
+测试接口服务器在 server 项目下，直接运行 RESTServer.main() 即可启动测试服务器，所面代码示例均使用该接口(接口地址 <a href="http://localhost:4567/">http://localhost:4567/</a> ).
+当然你也可以自己借助 json-server 或 最新开源的Parse 搭建一个REST API，不过都需要安装Node.js，有兴趣的可以去试试。</p>
+
+<!--more-->
+
+
+<p>接口列表：</p>
+
+<p><img src="http://i.imgur.com/ryIoI19.jpg" alt="" /></p>
+
+<p>前面写了你应该知道的HTTP基础知识 介绍了HTTP的相关知识，不知道那些想了解Retrofit的同鞋是不是去看了Retrofit的官方教程，曾经我在你真的会用Gson吗?Gson使用指南（四） 中说当你了解了注解、反射、泛型、HTTP的内容只需要看一篇Retrofit的代码示例就可以轻松玩转Retrofit，不知道你玩转了没?注：以上的接口的{id}和{page}均代表一个纯数字，/blog/{id} 可以用/blog?id=XXX 代替，page同理。
+当然注解、反射、泛型的内容还没有写，Retrofit的内容却先来了！毕竟看懂Retrofit也只需要会使就行，你准备好了吗？</p>
+
+<h3>1、 Retrofit入门</h3>
+
+<p>Retrofit 其实相当简单，简单到源码只有37个文件，其中22个文件是注解还都和HTTP有关，真正暴露给用户的类并不多,所以我看了一遍 官方教程 大多数情景就可以无障碍使用，如果你还没有看过，可以先去看看,虽然是英文，但代码才是最好的教程不是么?当然本篇文章会介绍得详细一点，不能写一篇水文，毕竟我给它命名为《你真的会用Retrofit2吗?Retrofit2完全教程》。</p>
+
+<h4>1.1、 创建Retrofit实例</h4>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>Retrofit retrofit = new Retrofit.Builder().baseUrl("http://localhost:4567/").build();  </span></code></pre></td></tr></table></div></figure>
+
+
+<p>创建Retrofit实例时需要通过Retrofit.Builder,并调用baseUrl方法设置URL。
+注： Retrofit2 的baseUlr 必须以 \/（斜线） 结束，不然会抛出一个IllegalArgumentException,所以如果你看到别的教程没有以\/ 结束，那么多半是直接从Retrofit 1.X 照搬过来的。</p>
+
+<h4>1.2、接口定义</h4>
+
+<p>以获取指定id的Blog为例:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>public interface BlogService {  
+</span><span class='line'>    @GET("blog/{id}")  
+</span><span class='line'>    Call&lt;ResponseBody&gt; getFirstBlog(@Path("id") int id);  
+</span><span class='line'>}  </span></code></pre></td></tr></table></div></figure>
+
+
+<p>注意，这里是interface不是class，所以我们是无法直接调用该方法，我们需要用Retrofit创建一个BlogService的代理对象。</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>  BlogService service = retrofit.create(BlogService.class);  </span></code></pre></td></tr></table></div></figure>
+
+
+<p>拿到代理对象之后，就可以调用该方法啦。</p>
+
+<h3>1.3、接口调用</h3>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>Call&lt;ResponseBody&gt; call = service.getFirstBlog(2);  
+</span><span class='line'>// 用法和OkHttp的call如出一辙,  
+</span><span class='line'>// 不同的是如果是Android系统回调方法执行在主线程  
+</span><span class='line'>call.enqueue(new Callback&lt;ResponseBody&gt;() {  
+</span><span class='line'>    @Override  
+</span><span class='line'>    public void onResponse(Call&lt;ResponseBody&gt; call, Response&lt;ResponseBody&gt; response) {  
+</span><span class='line'>        try {  
+</span><span class='line'>            System.out.println(response.body().string());  
+</span><span class='line'>        } catch (IOException e) {  
+</span><span class='line'>            e.printStackTrace();  
+</span><span class='line'>        }  
+</span><span class='line'>    }  
+</span><span class='line'>  
+</span><span class='line'>    @Override  
+</span><span class='line'>    public void onFailure(Call&lt;ResponseBody&gt; call, Throwable t) {  
+</span><span class='line'>        t.printStackTrace();  
+</span><span class='line'>    }  
+</span><span class='line'>});  </span></code></pre></td></tr></table></div></figure>
+
+
+<p>打印结果:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>{"code":200,"msg":"OK","data":{"id":2,"date":"2016-04-15 03:17:50","author":"怪盗kidou","title":"Retrofit2 测试2","content":"这里是 Retrofit2 Demo 测试服务器2"},"count":0,"page":0}  </span></code></pre></td></tr></table></div></figure>
+
+
+<p>示例源码见 Example01.java</p>
+
+<h3>3、Gson与Converter</h3>
+
+<p>在默认情况下Retrofit只支持将HTTP的响应体转换换为ResponseBody,
+这也是什么我在前面的例子接口的返回值都是 Call<ResponseBody>，
+但如果响应体只是支持转换为ResponseBody的话何必要引用泛型呢，
+返回值直接用一个Call就行了嘛，既然支持泛型，那说明泛型参数可以是其它类型的，
+<u>而Converter就是Retrofit为我们提供用于将ResponseBody转换为我们想要的类型</u>，
+有了Converter之后我们就可以写把我们的第一个例子的接口写成这个样子了：</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>public interface BlogService {  
+</span><span class='line'>  @GET("blog/{id}") //这里的{id} 表示是一个变量  
+</span><span class='line'>  Call&lt;Result&lt;Blog&gt;&gt; getFirstBlog(/** 这里的id表示的是上面的{id} */@Path("id") int id);  
+</span><span class='line'>}  
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>当然只改变泛型的类型是不行的，我们在创建Retrofit时需要明确告知用于将ResponseBody转换我们泛型中的类型时需要使用的Converter
+引入Gson支持:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>compile 'com.squareup.retrofit2:converter-gson:2.0.2'  </span></code></pre></td></tr></table></div></figure>
+
+
+<p>通过GsonConverterFactory为Retrofit添加Gson支持：</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>Gson gson = new GsonBuilder()  
+</span><span class='line'>      //配置你的Gson  
+</span><span class='line'>      .setDateFormat("yyyy-MM-dd hh:mm:ss")  
+</span><span class='line'>      .create();  
+</span><span class='line'>  
+</span><span class='line'>Retrofit retrofit = new Retrofit.Builder()  
+</span><span class='line'>      .baseUrl("http://localhost:4567/")  
+</span><span class='line'>      //可以接收自定义的Gson，当然也可以不传  
+</span><span class='line'>      .addConverterFactory(GsonConverterFactory.create(gson))  
+</span><span class='line'>      .build();  </span></code></pre></td></tr></table></div></figure>
+
+
+<p>示例源码见 Example06.java
+这样Retrofit就会使用Gson将ResponseBody转换我们想要的类型。
+这是时候我们终于可以演示如使创建一个Blog了！</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>@POST("blog")  
+</span><span class='line'>Call&lt;Result&lt;Blog&gt;&gt; createBlog(@Body Blog blog);  </span></code></pre></td></tr></table></div></figure>
+
+
+<p>被@Body注解的的Blog将会被Gson转换成RequestBody发送到服务器。</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>BlogService service = retrofit.create(BlogService.class);  
+</span><span class='line'>Blog blog = new Blog();  
+</span><span class='line'>blog.content = "新建的Blog";  
+</span><span class='line'>blog.title = "测试";  
+</span><span class='line'>blog.author = "怪盗kidou";  
+</span><span class='line'>Call&lt;Result&lt;Blog&gt;&gt; call = service.createBlog(blog);  </span></code></pre></td></tr></table></div></figure>
+
+
+<p>结果：</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>Result{code=200, msg='OK', data=Blog{id=20, date='2016-04-21 05:29:58', author='怪盗kidou', title='测试', content='新建的Blog'}, count=0, page=0}  </span></code></pre></td></tr></table></div></figure>
+
+
+<p>示例源码见 Example07.java
+如果你对Gson不熟悉可以参考我写的《你真的会用Gson吗?Gson使用指南》 系列。</p>
+
+<h3>4、RxJava与CallAdapter</h3>
+
+<p>说到Retrofit就不得说到另一个火到不行的库RxJava，网上已经不少文章讲如何与Retrofit结合，但这里还是会有一个RxJava的例子，不过这里主要目的是介绍使用CallAdapter所带来的效果。
+第3节介绍的Converter是对于Call<T>中T的转换，而CallAdapter则可以对Call转换，这样的话Call<T>中的Call也是可以被替换的，而返回值的类型就决定你后续的处理程序逻辑，同样Retrofit提供了多个CallAdapter，这里以RxJava的为例，用Observable代替Call：
+引入RxJava支持:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>compile 'com.squareup.retrofit2:adapter-rxjava:2.0.2'  </span></code></pre></td></tr></table></div></figure>
+
+
+<p>通过RxJavaCallAdapterFactory为Retrofit添加RxJava支持：</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>Retrofit retrofit = new Retrofit.Builder()  
+</span><span class='line'>      .baseUrl("http://localhost:4567/")  
+</span><span class='line'>      .addConverterFactory(GsonConverterFactory.create())  
+</span><span class='line'>      .addCallAdapterFactory(RxJavaCallAdapterFactory.create())  
+</span><span class='line'>      .build();  </span></code></pre></td></tr></table></div></figure>
+
+
+<p>接口设计：</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>public interface BlogService {  
+</span><span class='line'>  @POST("/blog")  
+</span><span class='line'>  Observable&lt;Result&lt;List&lt;Blog&gt;&gt;&gt; getBlogs();  
+</span><span class='line'>}  </span></code></pre></td></tr></table></div></figure>
+
+
+<p>使用：</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>BlogService service = retrofit.create(BlogService.class);  
+</span><span class='line'>service.getBlogs(1)  
+</span><span class='line'>  .subscribeOn(Schedulers.io())  
+</span><span class='line'>  .subscribe(new Subscriber&lt;Result&lt;List&lt;Blog&gt;&gt;&gt;() {  
+</span><span class='line'>      @Override  
+</span><span class='line'>      public void onCompleted() {  
+</span><span class='line'>        System.out.println("onCompleted");  
+</span><span class='line'>      }  
+</span><span class='line'>  
+</span><span class='line'>      @Override  
+</span><span class='line'>      public void onError(Throwable e) {  
+</span><span class='line'>        System.err.println("onError");  
+</span><span class='line'>      }  
+</span><span class='line'>  
+</span><span class='line'>      @Override  
+</span><span class='line'>      public void onNext(Result&lt;List&lt;Blog&gt;&gt; blogsResult) {  
+</span><span class='line'>        System.out.println(blogsResult);  
+</span><span class='line'>      }  
+</span><span class='line'>  });  </span></code></pre></td></tr></table></div></figure>
+
+
+<p>结果：</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>Result{code=200, msg='OK', data=[Blog{id=1, date='2016-04-15 03:17:50', author='怪盗kidou', title='Retrofit2 测试1', content='这里是 Retrofit2 Demo 测试服务器1'},.....], count=20, page=1}  </span></code></pre></td></tr></table></div></figure>
+
+
+<p>示例源码见 Example08.java
+「20160608补充」：像上面的这种情况最后我们无法获取到返回的Header和响应码的，如果我们需要这两者，提供两种方案：
+1、 用Observable&lt;Response<T>>Observable<T> ,这里的Response指retrofit2.Response
+2、 用Observable&lt;Result<T>> 代替Observable<T>，这里的Result是指retrofit2.adapter.rxjava.Result,这个Result中包含了Response的实例</p>
+
+<h3>7、其它说明</h3>
+
+<h4>7.1 Retrofit.Builder</h4>
+
+<p>前面用到了 Retrofit.Builder 中的baseUrl、addCallAdapterFactory、addConverterFactory、build方法，还有callbackExecutor、callFactory、client、validateEagerly这四个方法没有用到，这里简单的介绍一下。
+<img src="http://i.imgur.com/g5BMOP9.jpg" alt="" /></p>
+
+<p><img src="http://i.imgur.com/bdGn5UN.jpg" alt="" /></p>
+
+<h4>7.2 Retrofit的Url组合规则</h4>
+
+<p>从上面不能难看出以下规则：
+- 如果你在注解中提供的url是完整的url，则url将作为请求的url。
+- 如果你在注解中提供的url是不完整的url，且不以 / 开头，则请求的url为baseUrl+注解中提供的值
+- 如果你在注解中提供的url是不完整的url，且以 / 开头，则请求的url为baseUrl的主机部分+注解中提供的值</p>
+
+<h4>7.3 Retrofit提供的Converter</h4>
+
+<p> <img src="http://i.imgur.com/hYRnd3P.jpg" alt="" /></p>
+
+<h4>7.4 Retrofit提供的CallAdapter：</h4>
+
+<p> <img src="http://i.imgur.com/kuqfO3f.jpg" alt="" /></p>
+
+<h4>7.5 关于源码</h4>
+
+<p>看到这儿可能有小伙伴要问为什么源码没有把类拆分到单独的文件，命名也不能体现其用途，这里主要是因为方便大家看源码，而不是将注意力放在反复跳转上，另一方面也是因为同一个例子中不可避免的使用其它小节要介绍的内容，所以就直接用了ExampleXX的形式，不过在项目中千万不要使用这种方式，一定要好好命名，做到见名知意。</p>
+
+<h3>结语</h3>
+
+<p>其它本博客的内容早就已经完成好了，但由于当时HTTP、反射、注解的博客一篇也没有写，所以一直没有发，期间也有不少的博主写了Retrofit2的博文，不过呢没有自定义相关的内容也没有对各个注解进行详解，所以我还是决定发出来帮助一下那此对Retrofit2无从下手同鞋。</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">songyuan</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2017-03-25T22:49:52+08:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>25</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>10:49 pm</span></time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/codeline/blog/categories/android/'>android</a>
+  
+</span>
+
+
+       
+
+    </p>
+    
+      <div class="sharing">
+  
+  
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/codeline/blog/2017/03/25/rxjava/" title="Previous Post: rxjava">&laquo; rxjava</a>
+      
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+<!-- 
+<aside class="sidebar">
+  
+    <section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/codeline/blog/2017/03/25/retrofit2/"></a>
+      </li>
+    
+      <li class="post">
+        <a href="/codeline/blog/2017/03/25/rxjava/">Rxjava</a>
+      </li>
+    
+      <li class="post">
+        <a href="/codeline/blog/2017/03/25/frame-built/"></a>
+      </li>
+    
+      <li class="post">
+        <a href="/codeline/blog/2017/03/06/algorithm-dynamic-programing/">Algorithm-dynamic_programing</a>
+      </li>
+    
+      <li class="post">
+        <a href="/codeline/blog/2017/03/06/vr/">Vr</a>
+      </li>
+    
+  </ul>
+</section>
+
+
+
+
+
+  
+</aside>
+ -->
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2017 - songyuan -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+
+
+
+
+
+<!-- 
+ -->
+
+
+
+</body>
+</html>
