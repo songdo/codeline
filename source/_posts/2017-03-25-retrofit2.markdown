@@ -1,0 +1,217 @@
+---
+layout: post
+title: ""
+date: 2017-03-25 22:49:52 +0800
+comments: true
+categories: Android
+---
+
+>#####本文注目录：
+- Retrofit入门
+- Retrofit注解详解
+- Gson与Converter
+- RxJava与CallAdapter
+- 自定义Converter
+- 自定义CallAdapter
+- 其它说明
+
+####前言
+本文中的Retrofit均指代Retrofit2.0。
+本文涉及到的代码以及测试使用的接口可在Github上找到。
+测试接口服务器在 server 项目下，直接运行 RESTServer.main() 即可启动测试服务器，所面代码示例均使用该接口(接口地址 http://localhost:4567/ ).
+当然你也可以自己借助 json\-server 或 最新开源的Parse 搭建一个REST API，不过都需要安装Node.js，有兴趣的可以去试试。
+
+<!--more-->
+
+接口列表：
+
+![](http://i.imgur.com/ryIoI19.jpg)
+ 
+前面写了你应该知道的HTTP基础知识 介绍了HTTP的相关知识，不知道那些想了解Retrofit的同鞋是不是去看了Retrofit的官方教程，曾经我在你真的会用Gson吗?Gson使用指南（四） 中说当你了解了注解、反射、泛型、HTTP的内容只需要看一篇Retrofit的代码示例就可以轻松玩转Retrofit，不知道你玩转了没?注：以上的接口的{id}和{page}均代表一个纯数字，/blog/{id} 可以用/blog?id=XXX 代替，page同理。
+当然注解、反射、泛型的内容还没有写，Retrofit的内容却先来了！毕竟看懂Retrofit也只需要会使就行，你准备好了吗？
+
+### 1、 Retrofit入门
+
+Retrofit 其实相当简单，简单到源码只有37个文件，其中22个文件是注解还都和HTTP有关，真正暴露给用户的类并不多,所以我看了一遍 官方教程 大多数情景就可以无障碍使用，如果你还没有看过，可以先去看看,虽然是英文，但代码才是最好的教程不是么?当然本篇文章会介绍得详细一点，不能写一篇水文，毕竟我给它命名为《你真的会用Retrofit2吗?Retrofit2完全教程》。
+
+####1.1、 创建Retrofit实例
+
+```
+Retrofit retrofit = new Retrofit.Builder().baseUrl("http://localhost:4567/").build();  
+```
+创建Retrofit实例时需要通过Retrofit.Builder,并调用baseUrl方法设置URL。
+注： Retrofit2 的baseUlr 必须以 \/（斜线） 结束，不然会抛出一个IllegalArgumentException,所以如果你看到别的教程没有以\/ 结束，那么多半是直接从Retrofit 1.X 照搬过来的。
+####1.2、接口定义
+以获取指定id的Blog为例:
+```   
+	public interface BlogService {  
+	    @GET("blog/{id}")  
+	    Call<ResponseBody> getFirstBlog(@Path("id") int id);  
+	}  
+```
+注意，这里是interface不是class，所以我们是无法直接调用该方法，我们需要用Retrofit创建一个BlogService的代理对象。
+```
+  BlogService service = retrofit.create(BlogService.class);  
+```
+拿到代理对象之后，就可以调用该方法啦。
+###1.3、接口调用
+```
+	Call<ResponseBody> call = service.getFirstBlog(2);  
+	// 用法和OkHttp的call如出一辙,  
+	// 不同的是如果是Android系统回调方法执行在主线程  
+	call.enqueue(new Callback<ResponseBody>() {  
+	    @Override  
+	    public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {  
+	        try {  
+	            System.out.println(response.body().string());  
+	        } catch (IOException e) {  
+	            e.printStackTrace();  
+	        }  
+	    }  
+	  
+	    @Override  
+	    public void onFailure(Call<ResponseBody> call, Throwable t) {  
+	        t.printStackTrace();  
+	    }  
+	});  
+```
+打印结果:
+```
+	{"code":200,"msg":"OK","data":{"id":2,"date":"2016-04-15 03:17:50","author":"怪盗kidou","title":"Retrofit2 测试2","content":"这里是 Retrofit2 Demo 测试服务器2"},"count":0,"page":0}  
+```
+
+示例源码见 Example01.java
+
+###3、Gson与Converter
+在默认情况下Retrofit只支持将HTTP的响应体转换换为ResponseBody,
+这也是什么我在前面的例子接口的返回值都是 Call<ResponseBody>，
+但如果响应体只是支持转换为ResponseBody的话何必要引用泛型呢，
+返回值直接用一个Call就行了嘛，既然支持泛型，那说明泛型参数可以是其它类型的，
+<u>而Converter就是Retrofit为我们提供用于将ResponseBody转换为我们想要的类型</u>，
+有了Converter之后我们就可以写把我们的第一个例子的接口写成这个样子了：
+```
+	public interface BlogService {  
+	  @GET("blog/{id}") //这里的{id} 表示是一个变量  
+	  Call<Result<Blog>> getFirstBlog(/** 这里的id表示的是上面的{id} */@Path("id") int id);  
+	}  
+
+```
+
+
+
+
+
+当然只改变泛型的类型是不行的，我们在创建Retrofit时需要明确告知用于将ResponseBody转换我们泛型中的类型时需要使用的Converter
+引入Gson支持:
+```
+	compile 'com.squareup.retrofit2:converter-gson:2.0.2'  
+```
+通过GsonConverterFactory为Retrofit添加Gson支持：
+```
+	Gson gson = new GsonBuilder()  
+	      //配置你的Gson  
+	      .setDateFormat("yyyy-MM-dd hh:mm:ss")  
+	      .create();  
+	  
+	Retrofit retrofit = new Retrofit.Builder()  
+	      .baseUrl("http://localhost:4567/")  
+	      //可以接收自定义的Gson，当然也可以不传  
+	      .addConverterFactory(GsonConverterFactory.create(gson))  
+	      .build();  
+```
+示例源码见 Example06.java
+这样Retrofit就会使用Gson将ResponseBody转换我们想要的类型。
+这是时候我们终于可以演示如使创建一个Blog了！
+```
+	@POST("blog")  
+	Call<Result<Blog>> createBlog(@Body Blog blog);  
+```
+被@Body注解的的Blog将会被Gson转换成RequestBody发送到服务器。
+```
+	BlogService service = retrofit.create(BlogService.class);  
+	Blog blog = new Blog();  
+	blog.content = "新建的Blog";  
+	blog.title = "测试";  
+	blog.author = "怪盗kidou";  
+	Call<Result<Blog>> call = service.createBlog(blog);  
+```
+结果：
+```
+	Result{code=200, msg='OK', data=Blog{id=20, date='2016-04-21 05:29:58', author='怪盗kidou', title='测试', content='新建的Blog'}, count=0, page=0}  
+```
+示例源码见 Example07.java
+如果你对Gson不熟悉可以参考我写的《你真的会用Gson吗?Gson使用指南》 系列。
+###4、RxJava与CallAdapter
+说到Retrofit就不得说到另一个火到不行的库RxJava，网上已经不少文章讲如何与Retrofit结合，但这里还是会有一个RxJava的例子，不过这里主要目的是介绍使用CallAdapter所带来的效果。
+第3节介绍的Converter是对于Call<T>中T的转换，而CallAdapter则可以对Call转换，这样的话Call<T>中的Call也是可以被替换的，而返回值的类型就决定你后续的处理程序逻辑，同样Retrofit提供了多个CallAdapter，这里以RxJava的为例，用Observable代替Call：
+引入RxJava支持:
+```
+	compile 'com.squareup.retrofit2:adapter-rxjava:2.0.2'  
+```
+通过RxJavaCallAdapterFactory为Retrofit添加RxJava支持：
+```
+	Retrofit retrofit = new Retrofit.Builder()  
+	      .baseUrl("http://localhost:4567/")  
+	      .addConverterFactory(GsonConverterFactory.create())  
+	      .addCallAdapterFactory(RxJavaCallAdapterFactory.create())  
+	      .build();  
+```
+接口设计：
+```
+	public interface BlogService {  
+	  @POST("/blog")  
+	  Observable<Result<List<Blog>>> getBlogs();  
+	}  
+```
+使用：
+```
+	BlogService service = retrofit.create(BlogService.class);  
+	service.getBlogs(1)  
+	  .subscribeOn(Schedulers.io())  
+	  .subscribe(new Subscriber<Result<List<Blog>>>() {  
+	      @Override  
+	      public void onCompleted() {  
+	        System.out.println("onCompleted");  
+	      }  
+	  
+	      @Override  
+	      public void onError(Throwable e) {  
+	        System.err.println("onError");  
+	      }  
+	  
+	      @Override  
+	      public void onNext(Result<List<Blog>> blogsResult) {  
+	        System.out.println(blogsResult);  
+	      }  
+	  });  
+```
+结果：
+```
+	Result{code=200, msg='OK', data=[Blog{id=1, date='2016-04-15 03:17:50', author='怪盗kidou', title='Retrofit2 测试1', content='这里是 Retrofit2 Demo 测试服务器1'},.....], count=20, page=1}  
+```
+示例源码见 Example08.java
+「20160608补充」：像上面的这种情况最后我们无法获取到返回的Header和响应码的，如果我们需要这两者，提供两种方案：
+1、 用Observable<Response<T>>Observable<T> ,这里的Response指retrofit2.Response
+2、 用Observable<Result<T>> 代替Observable<T>，这里的Result是指retrofit2.adapter.rxjava.Result,这个Result中包含了Response的实例
+
+###7、其它说明
+####7.1 Retrofit.Builder
+前面用到了 Retrofit.Builder 中的baseUrl、addCallAdapterFactory、addConverterFactory、build方法，还有callbackExecutor、callFactory、client、validateEagerly这四个方法没有用到，这里简单的介绍一下。
+![](http://i.imgur.com/g5BMOP9.jpg)
+
+![](http://i.imgur.com/bdGn5UN.jpg)
+####7.2 Retrofit的Url组合规则
+从上面不能难看出以下规则：
+- 如果你在注解中提供的url是完整的url，则url将作为请求的url。
+- 如果你在注解中提供的url是不完整的url，且不以 / 开头，则请求的url为baseUrl+注解中提供的值
+- 如果你在注解中提供的url是不完整的url，且以 / 开头，则请求的url为baseUrl的主机部分+注解中提供的值
+####7.3 Retrofit提供的Converter
+ ![](http://i.imgur.com/hYRnd3P.jpg)
+
+####7.4 Retrofit提供的CallAdapter：
+ ![](http://i.imgur.com/kuqfO3f.jpg)
+####7.5 关于源码
+看到这儿可能有小伙伴要问为什么源码没有把类拆分到单独的文件，命名也不能体现其用途，这里主要是因为方便大家看源码，而不是将注意力放在反复跳转上，另一方面也是因为同一个例子中不可避免的使用其它小节要介绍的内容，所以就直接用了ExampleXX的形式，不过在项目中千万不要使用这种方式，一定要好好命名，做到见名知意。
+###结语
+其它本博客的内容早就已经完成好了，但由于当时HTTP、反射、注解的博客一篇也没有写，所以一直没有发，期间也有不少的博主写了Retrofit2的博文，不过呢没有自定义相关的内容也没有对各个注解进行详解，所以我还是决定发出来帮助一下那此对Retrofit2无从下手同鞋。
+

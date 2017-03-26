@@ -1,7 +1,0 @@
----
-layout: post
-title: "android2"
-date: 2017-03-24 23:58:22 +0800
-comments: true
-categories: 
----
